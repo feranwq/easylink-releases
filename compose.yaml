@@ -1,0 +1,19 @@
+services:
+  easylink-server:
+    image: wqferan/easylink-server:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5033:5033"
+    environment:
+      SYNCCLIPBOARD_USERNAME: ${EASYLINK_ADMIN_USERNAME:-admin}
+      SYNCCLIPBOARD_PASSWORD: ${EASYLINK_ADMIN_PASSWORD:?Set EASYLINK_ADMIN_PASSWORD in .env}
+      AppSettings__ApiKeyAuth__Enabled: "true"
+      AppSettings__ApiKeyAuth__ValidationUrl: ""
+      AppSettings__Database__Provider: sqlite
+      AppSettings__NativeNotification__Enabled: "true"
+      AppSettings__NativeNotification__Desktop__Enabled: "true"
+      AppSettings__PlanEnforcement__Enabled: "false"
+      Logging__LogLevel__Default: Information
+      Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command: Warning
+    volumes:
+      - ./server-data:/app/data
