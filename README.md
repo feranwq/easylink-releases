@@ -2,7 +2,7 @@
 
 EasyLink 是用于个人设备之间同步剪贴板、文件和通知的工具。本仓库只发布客户端二进制和部署说明，不包含应用源码。
 
-[隐私政策](docs/privacy-policy.md) · [Privacy Policy](docs/en-us/privacy-policy.md)
+隐私政策： [Android APK 中文](docs/android-privacy-policy.md) · [Android APK English](docs/en-us/android-privacy-policy.md) · [Google Play 中文](docs/android-play-privacy-policy.md) · [Google Play English](docs/en-us/android-play-privacy-policy.md) · [iOS 中文](docs/privacy-policy.md) · [iOS English](docs/en-us/privacy-policy.md)
 
 ## 下载客户端
 
