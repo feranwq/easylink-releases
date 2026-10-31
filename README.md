@@ -2,6 +2,8 @@
 
 EasyLink 是用于个人设备之间同步剪贴板、文件和通知的工具。本仓库只发布客户端二进制和部署说明，不包含应用源码。
 
+[隐私政策](docs/privacy-policy.md) · [Privacy Policy](docs/en-us/privacy-policy.md)
+
 ## 下载客户端
 
 - [macOS Apple Silicon（M 系列）](https://github.com/feranwq/easylink-releases/releases/latest/download/easylink_macos_arm64.dmg)
