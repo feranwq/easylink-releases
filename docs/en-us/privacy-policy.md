@@ -22,7 +22,7 @@ Large files may be uploaded or downloaded directly through a temporary transfer 
 
 If you enable notifications, EasyLink registers your Apple push-notification token, stable installation/route identifiers, the device identifier returned by the server, and notification capabilities and synchronization state with the currently selected server so it can deliver notifications to this device. Notification titles, bodies, groups, and other content you submit are sent to that server. The server may then deliver pushes through Apple Push Notification service (APNs). Apple processes the push token, payload, and necessary network information under Apple's own privacy policy.
 
-Notification history is stored on your device. Actions such as viewing, clicking, or reading a notification may be sent to the currently selected server. If a notification contains an external image URL, the notification extension may download the image from that URL when processing the notification; the URL operator may receive ordinary request information such as your IP address and request time.
+Notification history is stored on your device. Actions such as viewing, clicking, or reading a notification may be sent to the currently selected server. If the sender explicitly enables notification auto-copy, the notification extension writes the designated copy text or notification body to the iOS system clipboard; you can also copy content by tapping a copy action. If a notification contains an external image URL, the notification extension may download the image from that URL when processing the notification; the URL operator may receive ordinary request information such as your IP address and request time.
 
 ### Network and Third-Party Services
 
