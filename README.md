@@ -16,67 +16,32 @@ EasyLink 是用于个人设备之间同步剪贴板、文件和通知的工具�
 
 ## Docker Compose 启动服务端
 
-镜像：[`wqferan/easylink-server`](https://hub.docker.com/r/wqferan/easylink-server)，支持 `linux/amd64` 和 `linux/arm64`。个人单实例部署可以直接使用内置 SQLite，无需 OpenSaaS、PostgreSQL、MinIO 或外部 Docker 网络。
+本仓库的 `compose.yaml` 部署 EasyLink Server、MinIO、Nginx 和 Certbot。服务端使用 SQLite；文件对象保存在 MinIO，上传/下载通过 S3 预签名链接直传。
 
-在新目录中创建 `.env`，填写管理员登录信息：
+该配置为公网 IP 申请 Let's Encrypt HTTPS 证书。IP 证书有效期约 160 小时（约 6 天），Certbot 每 12 小时自动检查续期。需要固定公网 IPv4/IPv6，并确保防火墙放行 TCP `80`、`443`、`9000`。80 用于 ACME HTTP-01 验证，443 提供 EasyLink API，9000 提供 TLS S3 API。MinIO 管理端口 9001 不对公网开放。
 
-```dotenv
-EASYLINK_ADMIN_USERNAME=admin
-EASYLINK_ADMIN_PASSWORD=replace-with-a-long-random-password
+从本仓库创建部署目录：
+
+```bash
+git clone --depth 1 https://github.com/feranwq/easylink-releases.git easylink-server
+cd easylink-server
+cp .env.example .env
 ```
 
-创建 `compose.yaml`：
-
-```yaml
-services:
-  easylink-server:
-    image: wqferan/easylink-server:latest
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:5033:5033"
-    environment:
-      SYNCCLIPBOARD_USERNAME: ${EASYLINK_ADMIN_USERNAME:-admin}
-      SYNCCLIPBOARD_PASSWORD: ${EASYLINK_ADMIN_PASSWORD:?Set EASYLINK_ADMIN_PASSWORD in .env}
-      AppSettings__ApiKeyAuth__Enabled: "true"
-      AppSettings__ApiKeyAuth__ValidationUrl: ""
-      AppSettings__Database__Provider: sqlite
-      AppSettings__NativeNotification__Enabled: "true"
-      AppSettings__NativeNotification__Desktop__Enabled: "true"
-      AppSettings__PlanEnforcement__Enabled: "false"
-      Logging__LogLevel__Default: Information
-      Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command: Warning
-    volumes:
-      - ./server-data:/app/data
-```
-
-启动：
+编辑 `.env`：填写本机公网 IP、可接收证书通知的邮箱，并将 EasyLink 和 MinIO 密码改成长随机值。首次申请证书：
 
 ```bash
 chmod 600 .env
-docker compose pull
-docker compose up -d
-docker compose logs --tail=100 easylink-server
+mkdir -p server-data miniodata certbot/www letsencrypt
+docker compose --profile certificate-setup up -d easylink-server minio nginx-acme-bootstrap
+docker compose --profile certificate-setup run --rm certbot-issue
+docker compose --profile certificate-setup stop nginx-acme-bootstrap
+docker compose up -d nginx certbot-renew
+docker compose ps
+docker compose logs --tail=100 easylink-server nginx certbot-renew
 ```
 
-访问服务器本机的 `http://127.0.0.1:5033/admin/api-keys`，用 `.env` 中的管理员用户名/密码登录并创建 API Key。API Key 只会在创建时完整显示，妥善保存后填入各客户端。
-
-- Basic 用户名/密码只用于管理页面，不能用于剪贴板、通知或 SignalR API。
-- 客户端 API 使用 `Authorization: Bearer <apiKey>` 或 `X-API-Key: <apiKey>`。
-- 同一用户的所有 Key 共用剪贴板、通知和历史数据，不再使用通知频道隔离。
-- 用量仍会统计；上述配置不启用套餐拦截。
-- APNs/FCM 默认未启用，iOS 远程推送需要另外配置自己的 APNs 凭证，不能仅靠启用桌面通知获得 iOS 推送。
-
-### HTTPS 与反向代理
-
-示例只把端口绑定在服务器本机，推荐通过已有反向代理提供 HTTPS。配置上游为 `http://127.0.0.1:5033` 并转发 WebSocket（SignalR 的 `/SyncClipboardHub`）。如果代理在另一容器，应把两者加入同一 Docker 网络并使用 `http://easylink-server:5033`，而不是容器内的 `127.0.0.1`。
-
-临时局域网测试可以改为 `5033:5033`，但不要直接通过公网明文 HTTP 传输管理员密码、API Key 或个人数据。
-
-### 数据、备份与升级
-
-数据库、API Key 哈希、文件和历史保存在 `./server-data`，删除该目录会丢失数据。启动时服务端自动执行数据库迁移，不需要手动建表。
-
-升级前停止服务并备份整个 `server-data`，然后执行：
+之后升级镜像：
 
 ```bash
 docker compose pull
@@ -84,9 +49,14 @@ docker compose up -d
 docker compose logs --tail=100 easylink-server
 ```
 
-**升级警告：本次移除通知频道的数据库迁移会清空旧通知设备、通知历史、投递及回执记录；客户端需要重新注册设备。此通知迁移不清空剪贴板数据，但更早版本到当前版本可能包含其他破坏性迁移。请完整备份，不能仅通过回退镜像恢复已删除的数据。**
+管理页面为 `https://<公网IP>/admin/api-keys`；仅本机访问也可用 `http://127.0.0.1:5033/admin/api-keys`。Basic 用户名/密码只用于管理页面，客户端 API 必须使用创建时显示的 API Key。MinIO 的 S3 API 由 `https://<公网IP>:9000` 提供，管理端口 9001 不应映射到公网。
 
-SQLite 适合个人单实例；需要多实例或更大规模时，使用独立 PostgreSQL 并配置 `AppSettings__Database__Provider=postgres` 和 `AppSettings__Database__ConnectionString`。不要让多个容器共享同一 SQLite 文件。
+- EasyLink 数据库及本地历史文件位于 `./server-data`，MinIO 对象位于 `./miniodata`，证书和续期状态位于 `./letsencrypt`；升级或迁移前应停止服务并备份这些目录。
+- `.env.example` 默认保留当前部署使用的 Bitnami legacy MinIO 镜像以避免隐式换代；该镜像已归档且不再维护。新部署请在确认兼容性后通过 `MINIO_IMAGE` 选择维护中的 S3 兼容镜像。
+- 公网 HTTPS 证书绑定当前 IP；IP 变化后需更新 `.env` 并重新申请证书。
+- 首次从旧版本升级前请完整备份。当前版本的通知频道移除迁移会清理旧通知设备、历史、投递与回执；较早版本也可能包含其他破坏性迁移。
+- APNs/FCM 默认未启用。iOS 远程推送需要另行配置自己的 APNs 凭证。
+- 如服务器已有 Nginx 占用 80/443，需先调整现有入口或改用服务端单容器 Compose 配置，不能同时绑定同一端口。
 
 ## 授权与致谢
 
